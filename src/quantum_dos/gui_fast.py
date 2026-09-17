@@ -389,20 +389,29 @@ def build_app(plt, Slider, Button):
         _compute_and_draw()
 
     def reset(_=None):
-        # Reset each slider to its default. Slider.reset() fires the
-        # slider's on_changed callback (_on_change), which recomputes and
-        # redraws through exactly the same path a manual drag uses -- and
-        # that path is known to repaint reliably on the active backend.
-        # We deliberately do NOT suppress those callbacks here: letting
-        # the final slider.reset() drive a normal _on_change is what makes
-        # the plot refresh correctly (a suppressed, hand-rolled redraw
-        # from inside the button callback did not repaint on some
-        # backends). The few extra recomputes are cheap thanks to caching.
+        # Reset each slider to its default. Slider.reset() fires each
+        # slider's on_changed (_on_change), which recomputes the curve.
         for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
             slider.reset()
-        # Ensure a final consistent redraw even if every slider was
-        # already at its default (in which case reset() fires nothing).
+        # Recompute once more to cover the case where every slider was
+        # already at its default (so no callback fired) and to update the
+        # artists from the final state.
         _compute_and_draw()
+        # Force an actual repaint. Issued from inside a Button-click
+        # callback, a queued draw_idle() is often not flushed until the
+        # next user interaction on interactive backends, so the plot
+        # appears frozen on the pre-reset curve. draw() forces the render,
+        # and flush_events() drains the toolkit event queue so it is
+        # painted to screen immediately. Both are wrapped defensively so
+        # non-interactive backends (e.g. Agg in tests) are unaffected.
+        try:
+            fig.canvas.draw()
+        except Exception:
+            pass
+        try:
+            fig.canvas.flush_events()
+        except Exception:
+            pass
 
     for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
         slider.on_changed(_on_change)
