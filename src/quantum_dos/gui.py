@@ -241,25 +241,25 @@ def build_app(plt, Slider, Button):
 
     # ── Box-geometry sliders ───────────────────────────────────────────
     _section(0.910, "Box geometry")
-    sl_lx = _sl([0.06, 0.868, 0.23, 0.026], "Lx (nm)", 0.5, 20.0,
+    sl_lx = _sl([0.06, 0.868, 0.18, 0.026], "Lx (nm)", 0.5, 20.0,
                 DEFAULTS["lx_nm"], 0.5, C_LX)
-    sl_ly = _sl([0.06, 0.818, 0.23, 0.026], "Ly (nm)", 0.5, 20.0,
+    sl_ly = _sl([0.06, 0.818, 0.18, 0.026], "Ly (nm)", 0.5, 20.0,
                 DEFAULTS["ly_nm"], 0.5, C_LY)
-    sl_lz = _sl([0.06, 0.768, 0.23, 0.026], "Lz (nm)", 0.5, 20.0,
+    sl_lz = _sl([0.06, 0.768, 0.18, 0.026], "Lz (nm)", 0.5, 20.0,
                 DEFAULTS["lz_nm"], 0.5, C_LZ)
     _hdiv(0.750)
 
     # ── Physics sliders ────────────────────────────────────────────────
     _section(0.738, "Physics parameters")
-    sl_mass = _sl([0.06, 0.700, 0.23, 0.026], "m* (xme)", 0.1, 2.0,
+    sl_mass = _sl([0.06, 0.700, 0.18, 0.026], "m* (xme)", 0.1, 2.0,
                   DEFAULTS["effective_mass"], 0.05)
-    sl_temp = _sl([0.06, 0.656, 0.23, 0.026], "T   (K)", 0.0, 1000.0,
+    sl_temp = _sl([0.06, 0.656, 0.18, 0.026], "T   (K)", 0.0, 1000.0,
                   DEFAULTS["temperature_K"], 10.0)
-    sl_sigma = _sl([0.06, 0.612, 0.23, 0.026], "sig (eV)", 0.01, 0.5,
+    sl_sigma = _sl([0.06, 0.612, 0.18, 0.026], "sig (eV)", 0.01, 0.5,
                    DEFAULTS["sigma_eV"], 0.01)
     # Electron-density slider, in units of 1e28 m^-3 (so the readout is
     # a small, legible number). Range spans typical metal densities.
-    sl_density = _sl([0.06, 0.568, 0.23, 0.026], "n (1e28)", 0.5, 15.0,
+    sl_density = _sl([0.06, 0.568, 0.18, 0.026], "n (1e28)", 0.5, 15.0,
                      DEFAULTS["density_1e28"], 0.1)
     _hdiv(0.550)
 
@@ -384,11 +384,38 @@ def build_app(plt, Slider, Button):
     }
 
 
+def _select_interactive_backend() -> None:
+    """Prefer a Qt backend for interactive use.
+
+    On some very new Python/Tk combinations (e.g. Python 3.14) the
+    default TkAgg backend has a slider bug where dragging a Slider snaps
+    its value back, making the controls appear unresponsive. Qt backends
+    avoid this. If a Qt binding is installed we select QtAgg; otherwise
+    we keep matplotlib's default. Respects an explicit MPLBACKEND.
+    """
+    import os
+    import matplotlib
+
+    if os.environ.get("MPLBACKEND"):
+        return
+    for qt_binding in ("PyQt6", "PySide6", "PyQt5", "PySide2"):
+        try:
+            __import__(qt_binding)
+        except ImportError:
+            continue
+        try:
+            matplotlib.use("QtAgg", force=True)
+            return
+        except Exception:
+            continue
+
+
 def main() -> None:
     """Launch the interactive DOS explorer window."""
     # Imported here (not at module top) so that merely importing this
     # module does not hard-require matplotlib; the import error is only
     # raised if someone actually tries to launch the GUI.
+    _select_interactive_backend()
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, Slider
 
