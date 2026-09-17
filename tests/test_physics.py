@@ -127,6 +127,51 @@ class TestBroadenedDOS:
         with pytest.raises(ValueError):
             broadened_dos(np.array([1.0]), egrid, sigma_eV=0.0)
 
+    def test_rejects_non_positive_truncation_sigma(self):
+        egrid = np.linspace(0.01, 12.0, 500)
+        with pytest.raises(ValueError):
+            broadened_dos(np.array([1.0]), egrid, sigma_eV=0.05, truncation_sigma=0.0)
+
+    def test_truncated_matches_full_untruncated_sum(self):
+        # Regression guard for the truncated-Gaussian performance
+        # optimization. The current broadened_dos evaluates each state's
+        # Gaussian only within +/- truncation_sigma * sigma of each grid
+        # point; this test compares it against a straightforward *full*
+        # sum (every state contributes to every grid point, no
+        # truncation) -- the reference implementation the optimized code
+        # replaced.
+        #
+        # With the default truncation_sigma=8.0 the discarded tail is
+        # exp(-8^2 / 2) = exp(-32) ~ 1.3e-14 of a Gaussian's peak, so the
+        # two agree to ~13 significant figures. We assert a tight
+        # relative tolerance (1e-12) rather than exact equality: the
+        # truncation is a deliberate, negligible numerical difference,
+        # not a physically or visually meaningful one.
+        def full_untruncated_sum(energies_eV, egrid_eV, sigma_eV):
+            two_sigma_sq = 2.0 * sigma_eV**2
+            delta = egrid_eV[:, None] - energies_eV[None, :]
+            return np.sum(np.exp(-(delta**2) / two_sigma_sq), axis=1)
+
+        rng = np.random.default_rng(0)  # fixed seed -> deterministic test
+        energies = np.sort(rng.uniform(0.0, 12.0, size=5000))
+        egrid = np.linspace(0.01, 12.0, 500)
+
+        for sigma in (0.01, 0.05, 0.1, 0.3):
+            reference = full_untruncated_sum(energies, egrid, sigma)
+            optimized = broadened_dos(energies, egrid, sigma)
+            np.testing.assert_allclose(
+                optimized, reference, rtol=1e-12, atol=1e-12,
+                err_msg=f"truncated DOS differs from full sum at sigma={sigma}",
+            )
+
+    def test_smaller_truncation_window_still_captures_the_peak(self):
+        # Even a deliberately tight truncation window must still include
+        # the state sitting exactly on a grid point (delta = 0).
+        egrid = np.linspace(0.01, 12.0, 500)
+        dos = broadened_dos(np.array([6.0]), egrid, sigma_eV=0.05,
+                            truncation_sigma=3.0)
+        assert dos.max() > 0.99  # peak Gaussian value is 1.0 at its center
+
 
 # --------------------------------------------------------------------------
 # fermi_energy
