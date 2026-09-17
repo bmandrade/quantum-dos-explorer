@@ -42,6 +42,9 @@ dev = [
     "pytest-cov>=4.0",
 ]
 
+[project.scripts]
+quantum-dos = "quantum_dos.cli:main"
+
 [project.urls]
 Repository = "https://github.com/REPLACE_ME/quantum-dos-explorer"
 
