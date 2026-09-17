@@ -179,6 +179,49 @@ class TestGuiFastSmoke:
         assert "Cannot compute" in info_text or "enumerated states" in info_text
 
 
+class TestBlitting:
+    """The optimized GUI blits (repaints only the animated artists over a
+    cached background) when the y-axis does not rescale, and does a full
+    canvas draw when it does. Temperature/density changes keep the DOS
+    peak -- and thus the y-limit -- fixed, so they blit; geometry / mass /
+    sigma changes rescale the peak, so they need a full draw.
+    """
+
+    def test_initial_build_uses_a_full_draw(self, app):
+        assert app["state"]["last_draw"] == "full"
+
+    def test_temperature_change_uses_the_blit_path(self, app):
+        app["sliders"]["temp"].set_val(300.0)
+        app["compute_and_draw"]()
+        assert app["state"]["last_draw"] == "blit"
+
+    def test_density_change_uses_the_blit_path(self, app):
+        app["sliders"]["density"].set_val(10.0)
+        app["compute_and_draw"]()
+        assert app["state"]["last_draw"] == "blit"
+
+    def test_geometry_change_forces_a_full_draw(self, app):
+        app["sliders"]["lx"].set_val(15.0)
+        app["compute_and_draw"]()
+        assert app["state"]["last_draw"] == "full"
+
+    def test_sigma_change_forces_a_full_draw(self, app):
+        app["sliders"]["sigma"].set_val(0.3)
+        app["compute_and_draw"]()
+        assert app["state"]["last_draw"] == "full"
+
+    def test_dos_curve_is_visibly_rendered_after_a_full_draw(self, app):
+        # Because the artists are animated, a naive full draw would skip
+        # them; _full_draw must repaint them on top. Verify by counting
+        # blue DOS-curve pixels in the rendered buffer.
+        buf = np.asarray(app["fig"].canvas.buffer_rgba())
+        r = buf[:, :, 0].astype(int)
+        g = buf[:, :, 1].astype(int)
+        b = buf[:, :, 2].astype(int)
+        blueish = (b > 180) & (g > 140) & (r < 140)
+        assert blueish.sum() > 100
+
+
 class TestDefaultTemperature:
     def test_default_temperature_is_zero_kelvin(self, app):
         # The GUI now defaults the temperature slider to 0 K.

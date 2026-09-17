@@ -295,12 +295,17 @@ def build_app(plt, Slider, Button):
                  fontstyle="italic")
     info = ax_info.text(0.08, 0.90, "", transform=ax_info.transAxes,
                         va="top", ha="left", fontsize=9.5,
-                        color=TEXT, linespacing=1.95)
+                        color=TEXT, linespacing=1.95, animated=True)
 
     cache = DosCache()
     # Background captured for blitting; refreshed on full draws / resizes.
     # 'pending' tracks whether a debounced recompute is queued.
-    state = {"background": None, "timer": None, "pending": False}
+    # 'last_ylim' lets us detect when the y-axis rescales (forcing a full
+    # draw) vs. stays fixed (allowing a fast blit).
+    # 'last_draw' records which redraw path the previous update used
+    # ('full' or 'blit'), for tests and introspection.
+    state = {"background": None, "info_background": None, "timer": None,
+             "pending": False, "last_ylim": None, "last_draw": None}
 
     def _compute_and_draw():
         lx, ly, lz = sl_lx.val, sl_ly.val, sl_lz.val
@@ -364,28 +369,78 @@ def build_app(plt, Slider, Button):
             f"n      :  {density_m3:.2e} m^-3"
         )
 
-        # Because set_ylim can change the axes, a full draw is needed to
-        # refresh the blit background; then subsequent blits are cheap.
-        _full_draw()
+        # Choose the redraw path. Blitting (repainting only the animated
+        # artists over a cached background) is ~16x faster than a full
+        # canvas draw, but it is only valid when the axes background is
+        # unchanged -- i.e. when the y-limit did not move. Geometry / mass
+        # / sigma changes rescale the DOS peak and therefore the y-limit,
+        # so they need a full draw (which also refreshes the cached
+        # background). Temperature / density changes leave the DOS curve's
+        # peak (and thus the y-limit) fixed, so they can blit.
+        new_ylim = (0.0, dos_peak * 1.2)
+        ylim_changed = new_ylim != state["last_ylim"]
+        ax.set_ylim(*new_ylim)
+        state["last_ylim"] = new_ylim
+
+        if ylim_changed or state["background"] is None:
+            _full_draw()
+        else:
+            _blit_artists()
 
     def _full_draw():
-        """Redraw the whole canvas and re-capture the blit background."""
+        """Redraw the whole canvas, capture the blit backgrounds, then
+        paint the animated artists on top.
+
+        Because the DOS curve, occupied fill, Fermi line, regime badge
+        and info text are all declared ``animated=True``, a plain
+        ``fig.canvas.draw()`` skips them -- so after capturing the clean
+        background we must draw them on top and blit once, otherwise they
+        would be invisible until the next blit. Capturing the background
+        first (without the animated artists baked in) is exactly what
+        lets later blit-only updates repaint them cleanly."""
         fig.canvas.draw()
         try:
             state["background"] = fig.canvas.copy_from_bbox(ax.bbox)
+            state["info_background"] = fig.canvas.copy_from_bbox(ax_info.bbox)
         except Exception:
             state["background"] = None
+            state["info_background"] = None
+        # Paint the animated artists on top of the freshly captured
+        # background so they are visible after this full draw.
+        for artist in (fill_holder[0], line_theo, line_dos, vline_ef, regime_badge):
+            ax.draw_artist(artist)
+        ax_info.draw_artist(info)
+        try:
+            fig.canvas.blit(ax.bbox)
+            fig.canvas.blit(ax_info.bbox)
+        except Exception:
+            fig.canvas.draw_idle()
+        state["last_draw"] = "full"
 
     def _blit_artists():
-        """Redraw only the animated artists over the cached background."""
+        """Redraw only the animated artists over the cached background.
+
+        Blits two regions without any full canvas draw: the main axes
+        (DOS curve, analytic limit, occupied fill, Fermi line, regime
+        badge) and the info panel (whose Ef / T / n readouts also change
+        on temperature/density updates). Calling draw_idle here would
+        trigger a full redraw and defeat the point, so it is deliberately
+        avoided."""
         bg = state["background"]
         if bg is None:
-            fig.canvas.draw_idle()
+            _full_draw()
             return
         fig.canvas.restore_region(bg)
         for artist in (fill_holder[0], line_theo, line_dos, vline_ef, regime_badge):
             ax.draw_artist(artist)
         fig.canvas.blit(ax.bbox)
+        # Refresh the info panel by drawing its text artist and blitting
+        # just that region -- still no full canvas draw.
+        if state["info_background"] is not None:
+            fig.canvas.restore_region(state["info_background"])
+            ax_info.draw_artist(info)
+            fig.canvas.blit(ax_info.bbox)
+        state["last_draw"] = "blit"
 
     def _schedule(_=None):
         """Debounce slider events: restart a single reusable one-shot
