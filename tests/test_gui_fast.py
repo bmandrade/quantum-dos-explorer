@@ -163,10 +163,33 @@ class TestGuiFastSmoke:
         np.testing.assert_array_equal(curve_before, curve_after)
         assert not np.isclose(ef_before, ef_after)
 
-    def test_reset_restores_defaults(self, app):
+    def test_reset_restores_default_slider_values(self, app):
         app["sliders"]["lx"].set_val(15.0)
+        app["sliders"]["mass"].set_val(1.8)
         app["reset"]()
         assert np.isclose(app["sliders"]["lx"].val, 5.0)
+        assert np.isclose(app["sliders"]["mass"].val, 1.0)
+
+    def test_reset_redraws_the_plot_to_defaults_synchronously(self, app):
+        # Regression test: reset must update the plotted curve immediately,
+        # not merely reset the slider values and leave a stale curve (which
+        # a debounce-only reset would do until its timer fired).
+        default_curve = app["artists"]["line_dos"].get_ydata().copy()
+        default_info = app["info"].get_text()
+
+        app["sliders"]["lx"].set_val(15.0)
+        app["sliders"]["sigma"].set_val(0.3)
+        app["compute_and_draw"]()
+        assert not np.array_equal(
+            default_curve, app["artists"]["line_dos"].get_ydata()
+        )
+
+        app["reset"]()  # must redraw right away, no debounce wait
+        np.testing.assert_array_equal(
+            app["artists"]["line_dos"].get_ydata(), default_curve
+        )
+        assert app["info"].get_text() == default_info
+        assert app["state"]["pending"] is False
 
     def test_invalid_parameters_show_message_not_crash(self, app):
         app["sliders"]["lx"].set_val(20.0)

@@ -303,7 +303,8 @@ def build_app(plt, Slider, Button):
 
     cache = DosCache()
     # 'pending' tracks whether a debounced recompute is queued.
-    state = {"timer": None, "pending": False}
+    # 'suppress_schedule' short-circuits debounced scheduling during reset.
+    state = {"timer": None, "pending": False, "suppress_schedule": False}
 
     def _compute_and_draw():
         lx, ly, lz = sl_lx.val, sl_ly.val, sl_lz.val
@@ -386,6 +387,10 @@ def build_app(plt, Slider, Button):
         computing only once it has been quiet for ``DEBOUNCE_SECONDS``,
         a whole drag collapses to a single recompute at its end.
         """
+        # While reset() is restoring all sliders, skip scheduling; reset
+        # does one explicit recompute afterwards instead.
+        if state.get("suppress_schedule"):
+            return
         timer = state["timer"]
         if timer is None:
             # Create the reusable timer once, on first use.
@@ -404,8 +409,24 @@ def build_app(plt, Slider, Button):
         _compute_and_draw()
 
     def reset(_=None):
-        for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
-            slider.reset()
+        # Restore every slider to its default, then recompute once
+        # directly. We suppress the per-slider debounced scheduling while
+        # resetting so the seven slider.reset() calls don't each kick off
+        # (and repeatedly restart) the debounce timer -- which, depending
+        # on timing, could leave the plot showing an intermediate state or
+        # not redraw at all. Instead we do a single synchronous update at
+        # the end, exactly as the initial build does.
+        state["suppress_schedule"] = True
+        try:
+            for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
+                slider.reset()
+        finally:
+            state["suppress_schedule"] = False
+        # Cancel any queued debounce and update once, synchronously.
+        if state["timer"] is not None:
+            state["timer"].stop()
+        state["pending"] = False
+        _compute_and_draw()
 
     for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
         slider.on_changed(_schedule)
