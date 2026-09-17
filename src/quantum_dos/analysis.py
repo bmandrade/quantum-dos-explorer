@@ -123,9 +123,13 @@ def classify_regime(
     - If every axis is shorter than ``thresholds.confined_nm``: "0-D".
     - Otherwise, count axes longer than ``thresholds.bulk_nm``
       ("bulk-like" axes) -> that count directly gives "1-D"/"2-D"/"3-D".
-    - Any other combination (e.g. one confined + one crossover +
-      one bulk-like axis) is reported as "crossover", since it does
-      not cleanly match a single lower-dimensional limit.
+      This count alone determines the label: e.g. one bulk-like axis
+      gives "1-D" whether the *other two* axes are confined or merely
+      in the crossover band -- the algorithm does not additionally
+      require the remaining axes to be confined.
+    - "crossover" is reported only when zero axes are bulk-like and
+      not every axis is confined either (i.e. at least one axis sits
+      strictly between the two thresholds).
 
     Notes
     -----
