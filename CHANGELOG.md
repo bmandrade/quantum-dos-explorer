@@ -29,12 +29,13 @@ describe the transformation from the original single-file
   on the 20 nm box drops from ~158 ms to ~0.006 ms.
 - **Debounced slider events**: a drag's burst of events collapses to a
   single recompute at its end.
-- **Blitting**: temperature/density updates (which leave the y-axis
-  fixed) repaint only the animated artists over a cached background
-  (~8 ms/step vs ~39 ms for a full canvas draw); geometry/sigma updates,
-  which rescale the y-axis, do a full draw.
 - The whole optimization changes only speed, not the physics; the
   scientific core's results are unchanged to floating-point precision.
+  (An earlier iteration also blitted the plot, but that relied on
+  ``animated`` artists which some interactive backends fail to render on
+  initial show, producing a blank plot; it was removed in favor of a
+  plain, robust redraw. The caching and truncated-Gaussian broadening
+  already provide the bulk of the speedup.)
 
 ### Changed
 - The GUI temperature slider now **defaults to 0 K** (true

@@ -179,47 +179,38 @@ class TestGuiFastSmoke:
         assert "Cannot compute" in info_text or "enumerated states" in info_text
 
 
-class TestBlitting:
-    """The optimized GUI blits (repaints only the animated artists over a
-    cached background) when the y-axis does not rescale, and does a full
-    canvas draw when it does. Temperature/density changes keep the DOS
-    peak -- and thus the y-limit -- fixed, so they blit; geometry / mass /
-    sigma changes rescale the peak, so they need a full draw.
+class TestRendersVisibly:
+    """Regression tests for the empty-plot bug: an earlier version marked
+    the artists ``animated=True`` for blitting, which some interactive
+    backends skip on initial show, leaving a blank plot. These tests
+    assert the curve is actually painted into the rendered buffer -- both
+    right after building and after a subsequent update.
     """
 
-    def test_initial_build_uses_a_full_draw(self, app):
-        assert app["state"]["last_draw"] == "full"
-
-    def test_temperature_change_uses_the_blit_path(self, app):
-        app["sliders"]["temp"].set_val(300.0)
-        app["compute_and_draw"]()
-        assert app["state"]["last_draw"] == "blit"
-
-    def test_density_change_uses_the_blit_path(self, app):
-        app["sliders"]["density"].set_val(10.0)
-        app["compute_and_draw"]()
-        assert app["state"]["last_draw"] == "blit"
-
-    def test_geometry_change_forces_a_full_draw(self, app):
-        app["sliders"]["lx"].set_val(15.0)
-        app["compute_and_draw"]()
-        assert app["state"]["last_draw"] == "full"
-
-    def test_sigma_change_forces_a_full_draw(self, app):
-        app["sliders"]["sigma"].set_val(0.3)
-        app["compute_and_draw"]()
-        assert app["state"]["last_draw"] == "full"
-
-    def test_dos_curve_is_visibly_rendered_after_a_full_draw(self, app):
-        # Because the artists are animated, a naive full draw would skip
-        # them; _full_draw must repaint them on top. Verify by counting
-        # blue DOS-curve pixels in the rendered buffer.
+    def _blue_curve_pixels(self, app):
+        # The DOS line is BLUE (#4FC3F7). Count blue-ish pixels in the
+        # rendered RGBA buffer as a proxy for "the curve is visible".
+        app["fig"].canvas.draw()
         buf = np.asarray(app["fig"].canvas.buffer_rgba())
         r = buf[:, :, 0].astype(int)
         g = buf[:, :, 1].astype(int)
         b = buf[:, :, 2].astype(int)
-        blueish = (b > 180) & (g > 140) & (r < 140)
-        assert blueish.sum() > 100
+        return int(((b > 180) & (g > 140) & (r < 140)).sum())
+
+    def test_dos_curve_is_visible_right_after_build(self, app):
+        assert self._blue_curve_pixels(app) > 100
+
+    def test_dos_curve_stays_visible_after_an_update(self, app):
+        app["sliders"]["lx"].set_val(12.0)
+        app["compute_and_draw"]()
+        assert self._blue_curve_pixels(app) > 100
+
+    def test_artists_are_not_animated(self, app):
+        # animated=True is exactly what caused the blank-plot bug; guard
+        # against it being reintroduced.
+        for name in ("line_dos", "line_theo", "vline_ef", "regime_badge"):
+            assert app["artists"][name].get_animated() is False
+        assert app["info"].get_animated() is False
 
 
 class TestDefaultTemperature:
