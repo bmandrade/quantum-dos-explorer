@@ -5,25 +5,23 @@ Performance-optimized interactive GUI for Quantum DOS Explorer.
 This is a drop-in alternative to :mod:`quantum_dos.gui` with identical
 appearance, controls, and -- crucially -- identical numerical results,
 but much smoother interaction. The original ``gui`` module is preserved
-unchanged; this module adds two presentation-layer optimizations, plus
-the shared truncated-Gaussian broadening in the science core, none of
-which alter the physics:
+unchanged; this module adds result caching in the GUI layer, plus the
+shared truncated-Gaussian broadening in the science core, neither of
+which alters the physics:
 
 1. **Result caching.** The expensive DOS curve is recomputed only when
    an input that actually changes it (geometry, effective mass, sigma)
    changes. Moving the temperature slider triggers *no* recompute (it
    only re-shades the occupied region); moving the density slider reuses
    the cached DOS curve and only re-derives the cheap Fermi energy.
-2. **Debounced updates.** Rapid slider drags are coalesced so one drag
-   triggers one recompute instead of dozens.
 
-(An earlier version also blitted -- repainting only the changed artists
--- but that relied on ``animated`` artists that some interactive
-backends fail to render on initial show, leaving an empty plot. It was
-removed in favor of a plain ``draw_idle``; the caching and debouncing,
-together with the truncated-Gaussian broadening, already deliver the
-overwhelming majority of the speedup, and a plain redraw is robust on
-every backend.)
+(Earlier versions also blitted and debounced slider events through a
+matplotlib timer, but both proved unreliable on some interactive
+backends -- blitting left a blank plot, and the timer failed to fire on
+some TkAgg builds, leaving sliders unresponsive. Both were removed in
+favor of a direct compute-and-redraw per change, which is robust on
+every backend; the caching and truncated-Gaussian broadening already
+provide the speedup, so a direct update stays smooth for normal boxes.)
 
 Launch it with::
 
@@ -82,11 +80,6 @@ from .gui import (
 )
 
 __all__ = ["main", "build_app", "DosCache"]
-
-# Debounce interval: slider events arriving within this window are
-# coalesced into a single recompute. 60 ms is below the threshold of
-# perceptible lag but comfortably absorbs a fast drag's event storm.
-DEBOUNCE_SECONDS = 0.06
 
 
 @dataclass
@@ -308,9 +301,8 @@ def build_app(plt, Slider, Button):
                         color=TEXT, linespacing=1.95)
 
     cache = DosCache()
-    # 'pending' tracks whether a debounced recompute is queued.
-    # 'suppress_schedule' short-circuits debounced scheduling during reset.
-    state = {"timer": None, "pending": False, "suppress_schedule": False}
+    # 'suppress_schedule' short-circuits per-slider recomputes during reset.
+    state = {"suppress_schedule": False}
 
     def _compute_and_draw():
         lx, ly, lz = sl_lx.val, sl_ly.val, sl_lz.val
@@ -373,65 +365,45 @@ def build_app(plt, Slider, Button):
             f"n      :  {density_m3:.2e} m^-3"
         )
 
-        # Request a redraw. draw_idle coalesces multiple requests and works
-        # reliably across every matplotlib backend (unlike blitting, which
-        # is fragile on some interactive backends). The heavy lifting has
-        # already been avoided upstream: the cache skips recomputation for
-        # temperature/density changes, and debouncing collapses a drag into
-        # a single update -- so a plain redraw here is more than fast enough.
+        # Request a redraw. draw_idle works reliably for slider-driven
+        # updates (they originate inside the event loop, so the queued
+        # redraw is flushed promptly). The heavy work is avoided upstream:
+        # the cache skips recomputation for temperature/density changes,
+        # and the truncated-Gaussian broadening keeps geometry recomputes
+        # fast, so a direct redraw per change is smooth for normal boxes.
         fig.canvas.draw_idle()
 
-    def _schedule(_=None):
-        """Debounce slider events: restart a single reusable one-shot
-        timer on every event, so only the last event in a rapid burst
-        survives to trigger one ``_compute_and_draw``.
+    def _on_change(_=None):
+        """Recompute and redraw directly when a slider changes.
 
-        Rationale: while dragging a slider, matplotlib emits a stream of
-        ``on_changed`` events (often dozens per second). Without
-        debouncing, each would launch a full recompute, so the UI would
-        fall behind the cursor. By resetting the timer on each event and
-        computing only once it has been quiet for ``DEBOUNCE_SECONDS``,
-        a whole drag collapses to a single recompute at its end.
+        Earlier versions debounced slider events through a
+        ``fig.canvas.new_timer`` one-shot timer, but those timers do not
+        fire reliably on every interactive backend (notably some TkAgg
+        builds), which left sliders appearing unresponsive -- the value
+        moved under the cursor but no recompute ran. Computing directly
+        in the callback is robust everywhere. The heavy work is already
+        avoided upstream: the cache makes temperature/density changes
+        essentially free, and the truncated-Gaussian broadening keeps
+        even a full geometry recompute fast, so a direct update is
+        smooth for normal boxes (very large boxes may show brief lag
+        during a drag, which is preferable to an unresponsive slider).
         """
-        # While reset() is restoring all sliders, skip scheduling; reset
-        # does one explicit recompute afterwards instead.
+        # While reset() is restoring all sliders, skip per-slider
+        # recomputes; reset does one explicit update afterwards.
         if state.get("suppress_schedule"):
             return
-        timer = state["timer"]
-        if timer is None:
-            # Create the reusable timer once, on first use.
-            timer = fig.canvas.new_timer(interval=int(DEBOUNCE_SECONDS * 1000))
-            timer.single_shot = True
-            timer.add_callback(_on_debounce_fire)
-            state["timer"] = timer
-        else:
-            timer.stop()
-        state["pending"] = True
-        timer.start()
-
-    def _on_debounce_fire():
-        """Called by the debounce timer once a drag has gone quiet."""
-        state["pending"] = False
         _compute_and_draw()
 
     def reset(_=None):
-        # Restore every slider to its default, then recompute once
-        # directly. We suppress the per-slider debounced scheduling while
-        # resetting so the seven slider.reset() calls don't each kick off
-        # (and repeatedly restart) the debounce timer -- which, depending
-        # on timing, could leave the plot showing an intermediate state or
-        # not redraw at all. Instead we do a single synchronous update at
-        # the end, exactly as the initial build does.
+        # Restore every slider to its default, then recompute once.
+        # Suppress per-slider recomputes while restoring the seven values
+        # so we compute a single time at the end, from the final state.
         state["suppress_schedule"] = True
         try:
             for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
                 slider.reset()
         finally:
             state["suppress_schedule"] = False
-        # Cancel any queued debounce and update once, synchronously.
-        if state["timer"] is not None:
-            state["timer"].stop()
-        state["pending"] = False
         _compute_and_draw()
         # _compute_and_draw uses draw_idle, which only *schedules* a repaint
         # for the next idle moment. When invoked from a button-click handler,
@@ -445,11 +417,10 @@ def build_app(plt, Slider, Button):
             pass
 
     for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
-        slider.on_changed(_schedule)
+        slider.on_changed(_on_change)
     btn_reset.on_clicked(reset)
 
-    # Initial synchronous draw (no debounce) so the window is populated
-    # immediately on launch.
+    # Initial synchronous draw so the window is populated immediately.
     _compute_and_draw()
 
     return {
@@ -461,8 +432,7 @@ def build_app(plt, Slider, Button):
         },
         "reset_button": btn_reset,
         "compute_and_draw": _compute_and_draw,
-        "schedule": _schedule,
-        "on_debounce_fire": _on_debounce_fire,
+        "on_change": _on_change,
         "state": state,
         "reset": reset,
         "cache": cache,

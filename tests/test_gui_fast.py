@@ -138,12 +138,11 @@ class TestGuiFastSmoke:
         assert np.any(ydata > 0)
         assert np.all(np.isfinite(ydata))
 
-    def test_changing_dimension_updates_dos_after_compute(self, app):
+    def test_changing_dimension_updates_dos(self, app):
         before = app["artists"]["line_dos"].get_ydata().copy()
+        # Sliders now recompute directly in their on_changed callback, so
+        # the curve updates as soon as the value changes.
         app["sliders"]["lx"].set_val(12.0)
-        # The slider callback only *schedules* a debounced recompute; call
-        # the compute directly to get the deterministic post-state.
-        app["compute_and_draw"]()
         after = app["artists"]["line_dos"].get_ydata()
         assert not np.array_equal(before, after)
 
@@ -170,26 +169,24 @@ class TestGuiFastSmoke:
         assert np.isclose(app["sliders"]["lx"].val, 5.0)
         assert np.isclose(app["sliders"]["mass"].val, 1.0)
 
-    def test_reset_redraws_the_plot_to_defaults_synchronously(self, app):
+    def test_reset_redraws_the_plot_to_defaults(self, app):
         # Regression test: reset must update the plotted curve immediately,
-        # not merely reset the slider values and leave a stale curve (which
-        # a debounce-only reset would do until its timer fired).
+        # restoring it to the default state (not merely reset the slider
+        # values and leave a stale curve).
         default_curve = app["artists"]["line_dos"].get_ydata().copy()
         default_info = app["info"].get_text()
 
         app["sliders"]["lx"].set_val(15.0)
         app["sliders"]["sigma"].set_val(0.3)
-        app["compute_and_draw"]()
         assert not np.array_equal(
             default_curve, app["artists"]["line_dos"].get_ydata()
         )
 
-        app["reset"]()  # must redraw right away, no debounce wait
+        app["reset"]()
         np.testing.assert_array_equal(
             app["artists"]["line_dos"].get_ydata(), default_curve
         )
         assert app["info"].get_text() == default_info
-        assert app["state"]["pending"] is False
 
     def test_invalid_parameters_show_message_not_crash(self, app):
         app["sliders"]["lx"].set_val(20.0)
@@ -249,42 +246,33 @@ class TestDefaultTemperature:
         assert "T      :  0 K" in app["info"].get_text()
 
 
-class TestDebounce:
-    """The optimized GUI debounces slider events: a change schedules a
-    recompute rather than running one synchronously, and a burst of
-    changes collapses to a single recompute when the timer fires.
-
-    These tests drive the debounce logic directly (scheduling and the
-    timer-fire callback) rather than relying on a real event loop, which
-    does not run under the Agg backend in a headless test.
+class TestDirectComputeOnChange:
+    """The optimized GUI recomputes directly in each slider's on_changed
+    callback (no debounce timer, which proved unreliable on some
+    interactive backends). Moving a slider updates the curve immediately.
     """
 
-    def test_slider_change_schedules_but_does_not_compute_synchronously(self, app):
-        # Snapshot the DOS curve, move a geometry slider, and confirm the
-        # curve has NOT yet updated -- only a recompute has been queued.
-        before = app["artists"]["line_dos"].get_ydata().copy()
-        app["sliders"]["lx"].set_val(15.0)  # fires on_changed -> _schedule
-        after_schedule = app["artists"]["line_dos"].get_ydata()
-        assert np.array_equal(before, after_schedule)  # not computed yet
-        assert app["state"]["pending"] is True          # but queued
-
-    def test_firing_the_debounce_timer_performs_the_recompute(self, app):
+    def test_slider_change_computes_immediately(self, app):
         before = app["artists"]["line_dos"].get_ydata().copy()
         app["sliders"]["lx"].set_val(15.0)
-        # Simulate the debounce timer elapsing:
-        app["on_debounce_fire"]()
         after = app["artists"]["line_dos"].get_ydata()
-        assert not np.array_equal(before, after)   # now updated
-        assert app["state"]["pending"] is False     # queue cleared
+        assert not np.array_equal(before, after)
 
-    def test_a_burst_of_changes_collapses_to_one_pending_recompute(self, app):
-        # Rapidly move several sliders (as a drag would). Only ONE recompute
-        # should be pending, and firing the timer once should reflect the
-        # FINAL slider values -- i.e. intermediate states are skipped.
+    def test_slider_change_reflects_the_new_value_in_the_summary(self, app):
+        app["sliders"]["lx"].set_val(15.0)
+        assert "Lx :  15.0 nm" in app["info"].get_text()
+
+    def test_final_value_after_several_changes_is_the_one_shown(self, app):
         for value in (8.0, 10.0, 12.0, 15.0):
             app["sliders"]["lx"].set_val(value)
-        assert app["state"]["pending"] is True
-        app["on_debounce_fire"]()
-        # The computed curve must correspond to the final Lx = 15 nm, which
-        # we can confirm via the state-summary text the update writes.
         assert "Lx :  15.0 nm" in app["info"].get_text()
+
+    def test_changes_are_suppressed_during_reset(self, app):
+        # During reset, per-slider recomputes are suppressed and one
+        # explicit update runs at the end. Confirm the suppress flag is
+        # cleared afterwards so normal changes still compute.
+        app["reset"]()
+        assert app["state"]["suppress_schedule"] is False
+        before = app["artists"]["line_dos"].get_ydata().copy()
+        app["sliders"]["lx"].set_val(12.0)
+        assert not np.array_equal(before, app["artists"]["line_dos"].get_ydata())

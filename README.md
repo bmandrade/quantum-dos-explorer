@@ -127,8 +127,9 @@ agree byte for byte):
 - **Result caching** (`gui_fast`): temperature changes need no recompute
   at all; density changes reuse the DOS curve and only re-derive the
   Fermi energy; only geometry/mass/`sigma` changes recompute the curve.
-- **Debouncing**: a slider drag triggers one recompute at its end
-  rather than dozens.
+- **Direct compute-on-change**: each slider recomputes immediately in
+  its callback; the caching above keeps that cheap for temperature and
+  density, and the truncated broadening keeps geometry recomputes fast.
 
 On a 20×20×20 nm box (≈760k states) this turns a ~4 s-per-move naive
 update into an interactive one (temperature/density moves are near

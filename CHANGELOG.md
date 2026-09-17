@@ -27,15 +27,17 @@ describe the transformation from the original single-file
   changes reuse the cached DOS curve and re-fill only the Fermi energy;
   geometry/mass/sigma changes do a full recompute. A density-only change
   on the 20 nm box drops from ~158 ms to ~0.006 ms.
-- **Debounced slider events**: a drag's burst of events collapses to a
-  single recompute at its end.
+- **Direct compute-on-change**: each slider recompute runs immediately
+  in its callback. (An earlier iteration debounced through a matplotlib
+  timer, but those timers did not fire reliably on some TkAgg builds,
+  leaving sliders unresponsive; the caching and truncated-Gaussian
+  broadening already keep updates fast, so the timer was removed.)
 - The whole optimization changes only speed, not the physics; the
   scientific core's results are unchanged to floating-point precision.
   (An earlier iteration also blitted the plot, but that relied on
   ``animated`` artists which some interactive backends fail to render on
   initial show, producing a blank plot; it was removed in favor of a
-  plain, robust redraw. The caching and truncated-Gaussian broadening
-  already provide the bulk of the speedup.)
+  plain, robust redraw.)
 
 ### Changed
 - The GUI temperature slider now **defaults to 0 K** (true
