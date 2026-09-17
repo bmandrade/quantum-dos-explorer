@@ -27,27 +27,27 @@ from quantum_dos import gui_fast as fast_gui  # noqa: E402
 
 
 # A spread of slider states covering the different regimes and the
-# cheap/expensive update paths. (lx, ly, lz, mass, temp, sigma, density_1e28)
+# cheap/expensive update paths. (lx, ly, lz, mass, temp, sigma). Density
+# is now fixed to bulk silver for both GUIs, so it is not varied here.
 PARAMETER_SETS = [
-    (5.0, 5.0, 5.0, 1.0, 0.0, 0.05, 5.86),     # default-ish, T=0
-    (5.0, 5.0, 5.0, 1.0, 300.0, 0.05, 5.86),   # finite T
-    (1.0, 1.0, 1.0, 1.0, 100.0, 0.05, 5.86),   # 0-D dot
-    (1.0, 1.0, 12.0, 1.0, 200.0, 0.10, 2.0),   # 1-D-ish, low density (valid)
-    (12.0, 12.0, 1.0, 1.5, 500.0, 0.20, 10.0),  # 2-D-ish, heavy mass
-    (10.0, 10.0, 10.0, 1.0, 0.0, 0.05, 3.0),   # 3-D bulk, low density
-    (4.0, 6.0, 8.0, 0.8, 750.0, 0.30, 12.0),   # crossover, high T
-    (1.0, 1.0, 12.0, 0.5, 200.0, 0.10, 8.0),   # error case: too many electrons
+    (5.0, 5.0, 5.0, 1.0, 0.0, 0.05),      # default-ish, T=0
+    (5.0, 5.0, 5.0, 1.0, 300.0, 0.05),    # finite T
+    (1.0, 1.0, 1.0, 1.0, 100.0, 0.05),    # 0-D dot
+    (1.0, 1.0, 12.0, 1.0, 200.0, 0.10),   # 1-D-ish
+    (12.0, 12.0, 1.0, 1.5, 500.0, 0.20),  # 2-D-ish, heavy mass
+    (10.0, 10.0, 10.0, 1.0, 0.0, 0.05),   # 3-D bulk
+    (4.0, 6.0, 8.0, 0.8, 750.0, 0.30),    # crossover, high T
+    (20.0, 20.0, 20.0, 0.1, 200.0, 0.05),  # error case: too many electrons
 ]
 
 
-def _set_state(app, lx, ly, lz, mass, temp, sigma, density_1e28):
+def _set_state(app, lx, ly, lz, mass, temp, sigma):
     app["sliders"]["lx"].set_val(lx)
     app["sliders"]["ly"].set_val(ly)
     app["sliders"]["lz"].set_val(lz)
     app["sliders"]["mass"].set_val(mass)
     app["sliders"]["temp"].set_val(temp)
     app["sliders"]["sigma"].set_val(sigma)
-    app["sliders"]["density"].set_val(density_1e28)
 
 
 @pytest.mark.parametrize("params", PARAMETER_SETS)
@@ -107,7 +107,7 @@ def test_fast_gui_matches_reference_after_occupied_shading():
     ref = ref_gui.build_app(plt, Slider, Button)
     fast = fast_gui.build_app(plt, Slider, Button)
     try:
-        params = (6.0, 6.0, 6.0, 1.0, 400.0, 0.08, 6.0)
+        params = (6.0, 6.0, 6.0, 1.0, 400.0, 0.08)
         _set_state(ref, *params)
         ref["update"]()
         _set_state(fast, *params)

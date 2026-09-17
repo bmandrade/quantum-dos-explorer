@@ -43,11 +43,6 @@ DEFAULTS = dict(
     effective_mass=1.0,
     temperature_K=0.0,
     sigma_eV=0.05,
-    # Electron density is now a user-controlled slider (see module notes
-    # and the project CHANGELOG). The slider ranges over a few x10^28 m^-3;
-    # its default is bulk silver's value, matching the original script's
-    # previously-hidden assumption, but now visible and adjustable.
-    density_1e28=SILVER_ELECTRON_DENSITY_M3 / 1e28,
 )
 
 # Fixed numerical grid (kept equal to the original script's values).
@@ -257,19 +252,10 @@ def build_app(plt, Slider, Button):
                   DEFAULTS["temperature_K"], 10.0)
     sl_sigma = _sl([0.06, 0.612, 0.18, 0.026], "sig (eV)", 0.01, 0.5,
                    DEFAULTS["sigma_eV"], 0.01)
-    # Electron-density slider, in units of 1e28 m^-3 (so the readout is
-    # a small, legible number). Range spans typical metal densities.
-    sl_density = _sl([0.06, 0.568, 0.18, 0.026], "n (1e28)", 0.5, 15.0,
-                     DEFAULTS["density_1e28"], 0.1)
-    _hdiv(0.550)
-
-    # ── Reset button ───────────────────────────────────────────────────
-    ax_rst = fig.add_axes([0.07, 0.500, 0.20, 0.040])
-    btn_reset = Button(ax_rst, "Reset all", color=GRID, hovercolor="#2a2d3e")
-    btn_reset.label.set_color(MUTED); btn_reset.label.set_fontsize(10)
+    _hdiv(0.590)
 
     # ── Info box ───────────────────────────────────────────────────────
-    ax_info = fig.add_axes([0.02, 0.048, 0.27, 0.430])
+    ax_info = fig.add_axes([0.02, 0.048, 0.27, 0.520])
     ax_info.set_facecolor(PANEL)
     ax_info.set_xticks([]); ax_info.set_yticks([])
     for sp in ax_info.spines.values():
@@ -287,7 +273,9 @@ def build_app(plt, Slider, Button):
         mass = sl_mass.val
         sigma = sl_sigma.val
         temperature = _display_temperature_K(sl_temp.val)
-        density_m3 = sl_density.val * 1e28
+        # Electron density fixed to bulk silver's value (carrier-
+        # concentration slider removed). See constants module.
+        density_m3 = SILVER_ELECTRON_DENSITY_M3
 
         box = QuantumBox(lx_nm=lx, ly_nm=ly, lz_nm=lz, effective_mass=mass)
 
@@ -356,13 +344,8 @@ def build_app(plt, Slider, Button):
         )
         fig.canvas.draw_idle()
 
-    def reset(_=None):
-        for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
-            slider.reset()
-
-    for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
+    for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma):
         slider.on_changed(update)
-    btn_reset.on_clicked(reset)
 
     update()
 
@@ -371,11 +354,9 @@ def build_app(plt, Slider, Button):
         "ax": ax,
         "sliders": {
             "lx": sl_lx, "ly": sl_ly, "lz": sl_lz, "mass": sl_mass,
-            "temp": sl_temp, "sigma": sl_sigma, "density": sl_density,
+            "temp": sl_temp, "sigma": sl_sigma,
         },
-        "reset_button": btn_reset,
         "update": update,
-        "reset": reset,
         "artists": {
             "line_dos": line_dos, "line_theo": line_theo,
             "vline_ef": vline_ef, "regime_badge": regime_badge,

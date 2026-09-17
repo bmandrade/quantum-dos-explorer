@@ -42,7 +42,7 @@ class TestGuiBuilds:
         # initial update() ran without raising.
         assert app["fig"] is not None
         assert set(app["sliders"]) == {
-            "lx", "ly", "lz", "mass", "temp", "sigma", "density"
+            "lx", "ly", "lz", "mass", "temp", "sigma"
         }
 
     def test_initial_dos_curve_is_populated(self, app):
@@ -70,37 +70,21 @@ class TestSlidersUpdatePlot:
         after = app["artists"]["line_dos"].get_ydata()
         assert not np.array_equal(before, after)
 
-    def test_changing_density_moves_the_fermi_level(self, app):
-        before = app["artists"]["vline_ef"].get_xdata()[0]
-        app["sliders"]["density"].set_val(12.0)
-        after = app["artists"]["vline_ef"].get_xdata()[0]
-        assert not np.isclose(before, after)
-
     def test_changing_temperature_does_not_raise_and_keeps_curve_finite(self, app):
         app["sliders"]["temp"].set_val(900.0)
         ydata = app["artists"]["line_dos"].get_ydata()
         assert np.all(np.isfinite(ydata))
 
 
-class TestReset:
-    def test_reset_restores_default_slider_values(self, app):
-        app["sliders"]["lx"].set_val(15.0)
-        app["sliders"]["mass"].set_val(1.8)
-        app["reset"]()
-        assert np.isclose(app["sliders"]["lx"].val, 5.0)
-        assert np.isclose(app["sliders"]["mass"].val, 1.0)
-
-
 class TestInvalidParametersHandledGracefully:
     def test_density_too_high_for_cutoff_shows_message_not_crash(self, app):
         # Drive the sliders into the regime that makes calculate_dos raise
-        # (large light-mass box at high density). The GUI must catch it and
-        # display a message rather than propagating the exception.
+        # (large light-mass box at the fixed silver density). The GUI must
+        # catch it and display a message rather than propagating.
         app["sliders"]["lx"].set_val(20.0)
         app["sliders"]["ly"].set_val(20.0)
         app["sliders"]["lz"].set_val(20.0)
         app["sliders"]["mass"].set_val(0.1)
-        app["sliders"]["density"].set_val(15.0)
         # Should not have raised. Info text should mention the problem.
         info_text = app["info"].get_text()
         assert "Cannot compute" in info_text or "enumerated states" in info_text

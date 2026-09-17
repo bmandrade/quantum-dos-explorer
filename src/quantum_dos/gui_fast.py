@@ -280,15 +280,9 @@ def build_app(plt, Slider, Button):
                   DEFAULTS["temperature_K"], 10.0)
     sl_sigma = _sl([0.06, 0.612, 0.18, 0.026], "sig (eV)", 0.01, 0.5,
                    DEFAULTS["sigma_eV"], 0.01)
-    sl_density = _sl([0.06, 0.568, 0.18, 0.026], "n (1e28)", 0.5, 15.0,
-                     DEFAULTS["density_1e28"], 0.1)
-    _hdiv(0.550)
+    _hdiv(0.590)
 
-    ax_rst = fig.add_axes([0.07, 0.500, 0.20, 0.040])
-    btn_reset = Button(ax_rst, "Reset all", color=GRID, hovercolor="#2a2d3e")
-    btn_reset.label.set_color(MUTED); btn_reset.label.set_fontsize(10)
-
-    ax_info = fig.add_axes([0.02, 0.048, 0.27, 0.430])
+    ax_info = fig.add_axes([0.02, 0.048, 0.27, 0.520])
     ax_info.set_facecolor(PANEL)
     ax_info.set_xticks([]); ax_info.set_yticks([])
     for sp in ax_info.spines.values():
@@ -307,7 +301,10 @@ def build_app(plt, Slider, Button):
         mass = sl_mass.val
         sigma = sl_sigma.val
         temperature = _display_temperature_K(sl_temp.val)
-        density_m3 = sl_density.val * 1e28
+        # Electron density is fixed to bulk silver's value (the carrier-
+        # concentration slider was removed). Fermi-energy filling therefore
+        # always assumes this density; see constants.SILVER_ELECTRON_DENSITY_M3.
+        density_m3 = SILVER_ELECTRON_DENSITY_M3
 
         box = QuantumBox(lx_nm=lx, ly_nm=ly, lz_nm=lz, effective_mass=mass)
 
@@ -388,34 +385,8 @@ def build_app(plt, Slider, Button):
         """
         _compute_and_draw()
 
-    def reset(_=None):
-        # Reset each slider to its default. Slider.reset() fires each
-        # slider's on_changed (_on_change), which recomputes the curve.
-        for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
-            slider.reset()
-        # Recompute once more to cover the case where every slider was
-        # already at its default (so no callback fired) and to update the
-        # artists from the final state.
-        _compute_and_draw()
-        # Force an actual repaint. Issued from inside a Button-click
-        # callback, a queued draw_idle() is often not flushed until the
-        # next user interaction on interactive backends, so the plot
-        # appears frozen on the pre-reset curve. draw() forces the render,
-        # and flush_events() drains the toolkit event queue so it is
-        # painted to screen immediately. Both are wrapped defensively so
-        # non-interactive backends (e.g. Agg in tests) are unaffected.
-        try:
-            fig.canvas.draw()
-        except Exception:
-            pass
-        try:
-            fig.canvas.flush_events()
-        except Exception:
-            pass
-
-    for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
+    for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma):
         slider.on_changed(_on_change)
-    btn_reset.on_clicked(reset)
 
     # Initial synchronous draw so the window is populated immediately.
     _compute_and_draw()
@@ -425,12 +396,10 @@ def build_app(plt, Slider, Button):
         "ax": ax,
         "sliders": {
             "lx": sl_lx, "ly": sl_ly, "lz": sl_lz, "mass": sl_mass,
-            "temp": sl_temp, "sigma": sl_sigma, "density": sl_density,
+            "temp": sl_temp, "sigma": sl_sigma,
         },
-        "reset_button": btn_reset,
         "compute_and_draw": _compute_and_draw,
         "on_change": _on_change,
-        "reset": reset,
         "cache": cache,
         "artists": {
             "line_dos": line_dos, "line_theo": line_theo,

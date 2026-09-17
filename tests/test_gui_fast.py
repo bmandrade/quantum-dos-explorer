@@ -151,49 +151,14 @@ class TestGuiFastSmoke:
         app["compute_and_draw"]()
         assert np.all(np.isfinite(app["artists"]["line_dos"].get_ydata()))
 
-    def test_changing_density_moves_fermi_line_without_changing_curve(self, app):
-        curve_before = app["artists"]["line_dos"].get_ydata().copy()
-        ef_before = app["artists"]["vline_ef"].get_xdata()[0]
-        app["sliders"]["density"].set_val(12.0)
-        app["compute_and_draw"]()
-        curve_after = app["artists"]["line_dos"].get_ydata()
-        ef_after = app["artists"]["vline_ef"].get_xdata()[0]
-        # Density changes Ef but not the DOS curve.
-        np.testing.assert_array_equal(curve_before, curve_after)
-        assert not np.isclose(ef_before, ef_after)
-
-    def test_reset_restores_default_slider_values(self, app):
-        app["sliders"]["lx"].set_val(15.0)
-        app["sliders"]["mass"].set_val(1.8)
-        app["reset"]()
-        assert np.isclose(app["sliders"]["lx"].val, 5.0)
-        assert np.isclose(app["sliders"]["mass"].val, 1.0)
-
-    def test_reset_redraws_the_plot_to_defaults(self, app):
-        # Regression test: reset must update the plotted curve immediately,
-        # restoring it to the default state (not merely reset the slider
-        # values and leave a stale curve).
-        default_curve = app["artists"]["line_dos"].get_ydata().copy()
-        default_info = app["info"].get_text()
-
-        app["sliders"]["lx"].set_val(15.0)
-        app["sliders"]["sigma"].set_val(0.3)
-        assert not np.array_equal(
-            default_curve, app["artists"]["line_dos"].get_ydata()
-        )
-
-        app["reset"]()
-        np.testing.assert_array_equal(
-            app["artists"]["line_dos"].get_ydata(), default_curve
-        )
-        assert app["info"].get_text() == default_info
-
     def test_invalid_parameters_show_message_not_crash(self, app):
+        # A large, light-mass box at the fixed silver density needs more
+        # states than are enumerated below the cutoff, so calculate_dos
+        # raises; the GUI must show the message rather than crashing.
         app["sliders"]["lx"].set_val(20.0)
         app["sliders"]["ly"].set_val(20.0)
         app["sliders"]["lz"].set_val(20.0)
         app["sliders"]["mass"].set_val(0.1)
-        app["sliders"]["density"].set_val(15.0)
         app["compute_and_draw"]()
         info_text = app["info"].get_text()
         assert "Cannot compute" in info_text or "enumerated states" in info_text
@@ -266,11 +231,3 @@ class TestDirectComputeOnChange:
         for value in (8.0, 10.0, 12.0, 15.0):
             app["sliders"]["lx"].set_val(value)
         assert "Lx :  15.0 nm" in app["info"].get_text()
-
-    def test_sliders_still_compute_after_a_reset(self, app):
-        # After reset, a subsequent slider change must still recompute
-        # (reset must not leave the GUI in a state that blocks updates).
-        app["reset"]()
-        before = app["artists"]["line_dos"].get_ydata().copy()
-        app["sliders"]["lx"].set_val(12.0)
-        assert not np.array_equal(before, app["artists"]["line_dos"].get_ydata())
