@@ -298,7 +298,8 @@ def build_app(plt, Slider, Button):
 
     cache = DosCache()
     # Background captured for blitting; refreshed on full draws / resizes.
-    state = {"background": None, "timer": None}
+    # 'pending' tracks whether a debounced recompute is queued.
+    state = {"background": None, "timer": None, "pending": False}
 
     def _compute_and_draw():
         lx, ly, lz = sl_lx.val, sl_ly.val, sl_lz.val
@@ -386,16 +387,33 @@ def build_app(plt, Slider, Button):
         fig.canvas.blit(ax.bbox)
 
     def _schedule(_=None):
-        """Debounce: (re)start a one-shot timer; compute only when it
-        fires, so a burst of slider events triggers a single recompute."""
+        """Debounce slider events: restart a single reusable one-shot
+        timer on every event, so only the last event in a rapid burst
+        survives to trigger one ``_compute_and_draw``.
+
+        Rationale: while dragging a slider, matplotlib emits a stream of
+        ``on_changed`` events (often dozens per second). Without
+        debouncing, each would launch a full recompute, so the UI would
+        fall behind the cursor. By resetting the timer on each event and
+        computing only once it has been quiet for ``DEBOUNCE_SECONDS``,
+        a whole drag collapses to a single recompute at its end.
+        """
         timer = state["timer"]
-        if timer is not None:
+        if timer is None:
+            # Create the reusable timer once, on first use.
+            timer = fig.canvas.new_timer(interval=int(DEBOUNCE_SECONDS * 1000))
+            timer.single_shot = True
+            timer.add_callback(_on_debounce_fire)
+            state["timer"] = timer
+        else:
             timer.stop()
-        timer = fig.canvas.new_timer(interval=int(DEBOUNCE_SECONDS * 1000))
-        timer.single_shot = True
-        timer.add_callback(_compute_and_draw)
-        state["timer"] = timer
+        state["pending"] = True
         timer.start()
+
+    def _on_debounce_fire():
+        """Called by the debounce timer once a drag has gone quiet."""
+        state["pending"] = False
+        _compute_and_draw()
 
     def reset(_=None):
         for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
@@ -419,6 +437,8 @@ def build_app(plt, Slider, Button):
         "reset_button": btn_reset,
         "compute_and_draw": _compute_and_draw,
         "schedule": _schedule,
+        "on_debounce_fire": _on_debounce_fire,
+        "state": state,
         "reset": reset,
         "cache": cache,
         "artists": {

@@ -177,3 +177,44 @@ class TestGuiFastSmoke:
         app["compute_and_draw"]()
         info_text = app["info"].get_text()
         assert "Cannot compute" in info_text or "enumerated states" in info_text
+
+
+class TestDebounce:
+    """The optimized GUI debounces slider events: a change schedules a
+    recompute rather than running one synchronously, and a burst of
+    changes collapses to a single recompute when the timer fires.
+
+    These tests drive the debounce logic directly (scheduling and the
+    timer-fire callback) rather than relying on a real event loop, which
+    does not run under the Agg backend in a headless test.
+    """
+
+    def test_slider_change_schedules_but_does_not_compute_synchronously(self, app):
+        # Snapshot the DOS curve, move a geometry slider, and confirm the
+        # curve has NOT yet updated -- only a recompute has been queued.
+        before = app["artists"]["line_dos"].get_ydata().copy()
+        app["sliders"]["lx"].set_val(15.0)  # fires on_changed -> _schedule
+        after_schedule = app["artists"]["line_dos"].get_ydata()
+        assert np.array_equal(before, after_schedule)  # not computed yet
+        assert app["state"]["pending"] is True          # but queued
+
+    def test_firing_the_debounce_timer_performs_the_recompute(self, app):
+        before = app["artists"]["line_dos"].get_ydata().copy()
+        app["sliders"]["lx"].set_val(15.0)
+        # Simulate the debounce timer elapsing:
+        app["on_debounce_fire"]()
+        after = app["artists"]["line_dos"].get_ydata()
+        assert not np.array_equal(before, after)   # now updated
+        assert app["state"]["pending"] is False     # queue cleared
+
+    def test_a_burst_of_changes_collapses_to_one_pending_recompute(self, app):
+        # Rapidly move several sliders (as a drag would). Only ONE recompute
+        # should be pending, and firing the timer once should reflect the
+        # FINAL slider values -- i.e. intermediate states are skipped.
+        for value in (8.0, 10.0, 12.0, 15.0):
+            app["sliders"]["lx"].set_val(value)
+        assert app["state"]["pending"] is True
+        app["on_debounce_fire"]()
+        # The computed curve must correspond to the final Lx = 15 nm, which
+        # we can confirm via the state-summary text the update writes.
+        assert "Lx :  15.0 nm" in app["info"].get_text()
