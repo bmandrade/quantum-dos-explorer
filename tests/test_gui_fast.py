@@ -267,12 +267,10 @@ class TestDirectComputeOnChange:
             app["sliders"]["lx"].set_val(value)
         assert "Lx :  15.0 nm" in app["info"].get_text()
 
-    def test_changes_are_suppressed_during_reset(self, app):
-        # During reset, per-slider recomputes are suppressed and one
-        # explicit update runs at the end. Confirm the suppress flag is
-        # cleared afterwards so normal changes still compute.
+    def test_sliders_still_compute_after_a_reset(self, app):
+        # After reset, a subsequent slider change must still recompute
+        # (reset must not leave the GUI in a state that blocks updates).
         app["reset"]()
-        assert app["state"]["suppress_schedule"] is False
         before = app["artists"]["line_dos"].get_ydata().copy()
         app["sliders"]["lx"].set_val(12.0)
         assert not np.array_equal(before, app["artists"]["line_dos"].get_ydata())

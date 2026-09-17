@@ -301,8 +301,6 @@ def build_app(plt, Slider, Button):
                         color=TEXT, linespacing=1.95)
 
     cache = DosCache()
-    # 'suppress_schedule' short-circuits per-slider recomputes during reset.
-    state = {"suppress_schedule": False}
 
     def _compute_and_draw():
         lx, ly, lz = sl_lx.val, sl_ly.val, sl_lz.val
@@ -388,33 +386,23 @@ def build_app(plt, Slider, Button):
         smooth for normal boxes (very large boxes may show brief lag
         during a drag, which is preferable to an unresponsive slider).
         """
-        # While reset() is restoring all sliders, skip per-slider
-        # recomputes; reset does one explicit update afterwards.
-        if state.get("suppress_schedule"):
-            return
         _compute_and_draw()
 
     def reset(_=None):
-        # Restore every slider to its default, then recompute once.
-        # Suppress per-slider recomputes while restoring the seven values
-        # so we compute a single time at the end, from the final state.
-        state["suppress_schedule"] = True
-        try:
-            for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
-                slider.reset()
-        finally:
-            state["suppress_schedule"] = False
-        _compute_and_draw()  # updates artists + issues draw_idle
-        # Belt-and-braces repaint: draw_idle alone can be deferred when
-        # issued from inside a Button callback on some backends, so also
-        # force an immediate draw and flush the event queue.
-        for fn in (getattr(fig.canvas, "draw", None),
-                   getattr(fig.canvas, "flush_events", None)):
-            if fn is not None:
-                try:
-                    fn()
-                except Exception:
-                    pass
+        # Reset each slider to its default. Slider.reset() fires the
+        # slider's on_changed callback (_on_change), which recomputes and
+        # redraws through exactly the same path a manual drag uses -- and
+        # that path is known to repaint reliably on the active backend.
+        # We deliberately do NOT suppress those callbacks here: letting
+        # the final slider.reset() drive a normal _on_change is what makes
+        # the plot refresh correctly (a suppressed, hand-rolled redraw
+        # from inside the button callback did not repaint on some
+        # backends). The few extra recomputes are cheap thanks to caching.
+        for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
+            slider.reset()
+        # Ensure a final consistent redraw even if every slider was
+        # already at its default (in which case reset() fires nothing).
+        _compute_and_draw()
 
     for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
         slider.on_changed(_on_change)
@@ -433,7 +421,6 @@ def build_app(plt, Slider, Button):
         "reset_button": btn_reset,
         "compute_and_draw": _compute_and_draw,
         "on_change": _on_change,
-        "state": state,
         "reset": reset,
         "cache": cache,
         "artists": {
