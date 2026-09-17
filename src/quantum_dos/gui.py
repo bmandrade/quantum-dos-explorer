@@ -41,7 +41,7 @@ DEFAULTS = dict(
     ly_nm=5.0,
     lz_nm=5.0,
     effective_mass=1.0,
-    temperature_K=300.0,
+    temperature_K=0.0,
     sigma_eV=0.05,
     # Electron density is now a user-controlled slider (see module notes
     # and the project CHANGELOG). The slider ranges over a few x10^28 m^-3;
@@ -59,12 +59,23 @@ N_POINTS = 500
 # original script's three separate hardcoded threshold sets).
 THRESHOLDS = ConfinementThresholds(confined_nm=2.0, bulk_nm=8.0)
 
-# Minimum temperature actually passed to the occupation function from the
-# GUI. This is a *presentation* smoothing choice (avoids an infinitely
-# sharp step that renders as a vertical line); the physics function
-# itself supports the true T=0 limit directly. Documented here and in
-# physics.fermi_dirac.
+# Below this positive temperature, the GUI substitutes the exact T=0
+# limit. The Fermi-Dirac function supports T=0 directly (it returns the
+# sharp step); this constant only guards the narrow open interval
+# (0, GUI_MIN_TEMPERATURE_K), where an extremely (but not infinitely)
+# sharp step would add nothing visually. Exactly 0 K is passed through
+# as the true zero-temperature limit. See physics.fermi_dirac.
 GUI_MIN_TEMPERATURE_K = 1.0
+
+
+def _display_temperature_K(slider_value_K: float) -> float:
+    """Map a temperature slider value to the temperature used for
+    occupation. Exactly 0 is the true T=0 limit; values in the open
+    interval (0, GUI_MIN_TEMPERATURE_K) are lifted to GUI_MIN_TEMPERATURE_K
+    to avoid a needlessly sharp step; everything else passes through."""
+    if slider_value_K <= 0.0:
+        return 0.0
+    return max(slider_value_K, GUI_MIN_TEMPERATURE_K)
 
 
 # ── Presentation constants (colors live here, NOT in analysis.py) ─────────
@@ -271,7 +282,7 @@ def build_app(plt, Slider, Button):
         lx, ly, lz = sl_lx.val, sl_ly.val, sl_lz.val
         mass = sl_mass.val
         sigma = sl_sigma.val
-        temperature = max(sl_temp.val, GUI_MIN_TEMPERATURE_K)
+        temperature = _display_temperature_K(sl_temp.val)
         density_m3 = sl_density.val * 1e28
 
         box = QuantumBox(lx_nm=lx, ly_nm=ly, lz_nm=lz, effective_mass=mass)

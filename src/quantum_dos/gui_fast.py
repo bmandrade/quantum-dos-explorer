@@ -71,6 +71,7 @@ from .gui import (
     TEXT,
     THRESHOLDS,
     GREY,
+    _display_temperature_K,
 )
 
 __all__ = ["main", "build_app", "DosCache"]
@@ -305,7 +306,7 @@ def build_app(plt, Slider, Button):
         lx, ly, lz = sl_lx.val, sl_ly.val, sl_lz.val
         mass = sl_mass.val
         sigma = sl_sigma.val
-        temperature = max(sl_temp.val, GUI_MIN_TEMPERATURE_K)
+        temperature = _display_temperature_K(sl_temp.val)
         density_m3 = sl_density.val * 1e28
 
         box = QuantumBox(lx_nm=lx, ly_nm=ly, lz_nm=lz, effective_mass=mass)

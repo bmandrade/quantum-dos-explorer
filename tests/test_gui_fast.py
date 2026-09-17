@@ -179,6 +179,19 @@ class TestGuiFastSmoke:
         assert "Cannot compute" in info_text or "enumerated states" in info_text
 
 
+class TestDefaultTemperature:
+    def test_default_temperature_is_zero_kelvin(self, app):
+        # The GUI now defaults the temperature slider to 0 K.
+        assert app["sliders"]["temp"].val == 0.0
+
+    def test_zero_kelvin_default_uses_the_true_step_and_stays_finite(self, app):
+        # At the 0 K default the occupied-DOS shading uses the exact
+        # Fermi-Dirac step; the curve must remain finite (no divide-by-zero).
+        app["compute_and_draw"]()
+        assert np.all(np.isfinite(app["artists"]["line_dos"].get_ydata()))
+        assert "T      :  0 K" in app["info"].get_text()
+
+
 class TestDebounce:
     """The optimized GUI debounces slider events: a change schedules a
     recompute rather than running one synchronously, and a burst of
