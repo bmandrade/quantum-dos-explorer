@@ -185,11 +185,15 @@ def build_app(plt, Slider, Button):
     _vdiv(0.305)
 
     # ── Main plot ──────────────────────────────────────────────────────
-    ax = fig.add_axes([0.36, 0.10, 0.61, 0.83])
+    ax = fig.add_axes([0.40, 0.10, 0.57, 0.83])
     ax.set_xlabel("Energy  (eV)", fontsize=12)
     ax.set_ylabel("DOS  g(E)  (arb. units)", fontsize=12)
     ax.set_xlim(0, E_MAX_EV)
     ax.set_ylim(bottom=0)
+    # Keep y-tick labels compact so wide values (large boxes) don't
+    # collide with the sliders; scientific notation with a shared offset.
+    ax.ticklabel_format(axis="y", style="sci", scilimits=(-3, 3))
+    ax.yaxis.get_offset_text().set_fontsize(8)
 
     fig.text(0.155, 0.963, "Quantum DOS Explorer",
              ha="center", fontsize=13, fontweight="bold", color=TEXT)
