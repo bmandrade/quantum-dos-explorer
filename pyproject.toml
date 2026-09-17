@@ -44,6 +44,7 @@ dev = [
 
 [project.scripts]
 quantum-dos = "quantum_dos.cli:main"
+quantum-dos-gui = "quantum_dos.gui:main"
 
 [project.urls]
 Repository = "https://github.com/REPLACE_ME/quantum-dos-explorer"
