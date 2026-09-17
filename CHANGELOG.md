@@ -7,6 +7,39 @@ describe the transformation from the original single-file
 
 ## [Unreleased]
 
+### Performance (optimized GUI, identical results)
+- **New `quantum-dos-gui-fast` interactive GUI** (`gui_fast.py`): a
+  drop-in alternative to `quantum-dos-gui` with identical appearance,
+  controls, and numerical results, but much smoother interaction. The
+  original `gui.py` is preserved unchanged. A cross-check test
+  (`tests/test_gui_equivalence.py`) asserts the two GUIs produce
+  byte-for-byte identical DOS curves, Fermi levels, regime labels, and
+  state-summary text across all regimes.
+- **`broadened_dos` optimized with truncated Gaussians** (science core).
+  Each state's Gaussian is now evaluated only within `truncation_sigma *
+  sigma` (default 8 sigma) of each grid point, using `searchsorted` on
+  the sorted energies. This is output-preserving: the discarded tail is
+  `exp(-32) ~ 1.3e-14` of the peak, so the DOS is identical to the full
+  sum to ~14 significant figures (regression-tested to `rtol=1e-12`).
+  Measured speedups: 16x (5 nm box), 55x (20 nm box, 759k states).
+- **Result caching in the fast GUI** (`DosCache`): temperature changes
+  trigger no physics recompute (only occupation re-evaluates); density
+  changes reuse the cached DOS curve and re-fill only the Fermi energy;
+  geometry/mass/sigma changes do a full recompute. A density-only change
+  on the 20 nm box drops from ~158 ms to ~0.006 ms.
+- **Debounced slider events**: a drag's burst of events collapses to a
+  single recompute at its end.
+- **Blitting**: temperature/density updates (which leave the y-axis
+  fixed) repaint only the animated artists over a cached background
+  (~8 ms/step vs ~39 ms for a full canvas draw); geometry/sigma updates,
+  which rescale the y-axis, do a full draw.
+- The whole optimization changes only speed, not the physics; the
+  scientific core's results are unchanged to floating-point precision.
+
+### Changed
+- The GUI temperature slider now **defaults to 0 K** (true
+  zero-temperature Fermi-Dirac step) instead of 300 K, in both GUIs.
+
 ### Added
 - Installable Python package (`quantum_dos`) with a pure-NumPy
   scientific core (`constants.py`, `models.py`, `physics.py`,

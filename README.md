@@ -101,6 +101,39 @@ DOS, the analytical limit, the Fermi-Dirac-occupied DOS, and the Fermi
 level, with a dimensional-regime badge and a state summary. A **Reset**
 button restores defaults. (Requires the `[gui]` extra.)
 
+For large boxes the naive GUI can lag on every slider move, so an
+optimized version is also provided:
+
+```bash
+quantum-dos-gui-fast
+```
+
+It looks and behaves identically and produces the same numbers (verified
+by a cross-check test), but stays smooth via three presentation-layer
+optimizations, none of which change the physics — see **Performance**
+below.
+
+### Performance
+
+The interactive experience was profiled and optimized without altering
+any scientific result (a regression test asserts the DOS is identical to
+~14 significant figures, and a cross-check test asserts the two GUIs
+agree byte for byte):
+
+- **Truncated-Gaussian broadening** (in the science core): the dominant
+  cost, `broadened_dos`, now evaluates each state's Gaussian only near
+  its peak (within `8 sigma`), giving ~16x–55x faster DOS construction
+  with output identical to the full sum to floating-point precision.
+- **Result caching** (`gui_fast`): temperature changes need no recompute
+  at all; density changes reuse the DOS curve and only re-derive the
+  Fermi energy; only geometry/mass/`sigma` changes recompute the curve.
+- **Debouncing + blitting**: a slider drag triggers one recompute at its
+  end rather than dozens, and fixed-axis updates repaint only the moving
+  curves instead of the whole canvas.
+
+On a 20×20×20 nm box (≈760k states) this turns a ~4 s-per-move naive
+update into an interactive one (temperature/density moves ≈8 ms).
+
 ## Parameters
 
 | Parameter    | Meaning                                   | Unit           | Default (GUI) |
