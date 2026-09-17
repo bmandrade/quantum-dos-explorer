@@ -427,6 +427,16 @@ def build_app(plt, Slider, Button):
             state["timer"].stop()
         state["pending"] = False
         _compute_and_draw()
+        # _compute_and_draw uses draw_idle, which only *schedules* a repaint
+        # for the next idle moment. When invoked from a button-click handler,
+        # some interactive backends do not flush that idle redraw until the
+        # next user interaction, so the plot appears not to react to Reset.
+        # Force an immediate draw here to guarantee the reset is visible.
+        try:
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+        except Exception:
+            pass
 
     for slider in (sl_lx, sl_ly, sl_lz, sl_mass, sl_temp, sl_sigma, sl_density):
         slider.on_changed(_schedule)
