@@ -263,21 +263,26 @@ In accordance with the university's guidelines on the declaration of AI
 use, this section discloses how AI assistance was used in preparing this
 project.
 
-AI assistance (Anthropic's Claude) was used during development. Its most
-substantial contribution was in generating and structuring the `pytest`
-test suite; it was also used for help with refactoring the original
-prototype into a package, drafting documentation, debugging, and
-resolving platform-specific issues with the interactive GUI.
+AI assistance (Anthropic's Claude) was used extensively throughout the
+development of this project. This included: refactoring the original
+single-file prototype into the `quantum_dos` package and designing the
+module layout and public API; writing and documenting the `pytest` test
+suite; writing much of the source code and its docstrings; drafting the
+documentation (this README, the CHANGELOG, and the scientific-background
+notes); profiling and implementing the performance optimizations; and
+debugging, including resolving platform-specific issues with the
+interactive GUI. In practice, a large fraction of the code and
+documentation in this repository was produced with AI assistance.
 
-The underlying physical model, the scientific assumptions, and the
-decisions about what the software should do and how it should be
-organized are the author's own. All AI-generated content, including the
-tests, was reviewed by the author, who takes full responsibility for the
-correctness and content of the submitted work. Where AI assistance was
-used, it was used as a tool under the author's direction.
-
-The original `Quantum DOS Explorer` prototype, which is the starting
-point this project builds on, is the author's own prior work.
+What is the author's own: the choice of project and of the underlying
+physical model, the scientific assumptions, the source paper the model
+is based on, the original prototype that this project builds on, and the
+direction and review of the work at every step. Every AI-generated
+contribution -- source code, tests, and documentation alike -- was read
+and reviewed by the author before being included, and the author takes
+full responsibility for the correctness and content of the submitted
+work. AI was used as a tool under the author's direction, not as an
+autonomous author.
 
 ## License
 
