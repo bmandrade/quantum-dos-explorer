@@ -43,8 +43,14 @@ describe the transformation from the original single-file
 - Installable Python package (`quantum_dos`) with a pure-NumPy
   scientific core (`constants.py`, `models.py`, `physics.py`,
   `analysis.py`), independent of matplotlib.
-- `pytest` test suite (126 tests, with high coverage of the scientific
-  core) including regression tests for bugs found during refactoring.
+- `pytest` test suite with high coverage of the scientific core
+  (physics, analysis, models and constants at 100%), including
+  regression tests for bugs found during refactoring. Every test is
+  documented with a WHY and GIVEN/WHEN/THEN description, and each test
+  is written to fail for a single reason. Visualization/GUI mechanics
+  are checked by hand rather than by automated tests; the GUI logic that
+  is pure computation (the DOS cache and the numerical equivalence of
+  the two GUIs) is tested directly.
 - `pyproject.toml` packaging (`pip install .` / `pip install -e ".[dev]"`),
   MIT `LICENSE`, `.gitignore`.
 

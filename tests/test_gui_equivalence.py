@@ -52,6 +52,28 @@ def _set_state(app, lx, ly, lz, mass, temp, sigma):
 
 @pytest.mark.parametrize("params", PARAMETER_SETS)
 def test_fast_gui_matches_reference_gui_numerically(params):
+    """The optimized GUI must produce the same numbers as the reference GUI.
+
+    WHY: this is the test that justifies having an optimized GUI at all.
+    gui_fast is only allowed to be faster, never to change the science,
+    so for every input it must produce the same DOS curve, analytical
+    limit, Fermi level, regime label, and state-summary text as the
+    plain reference GUI. The parameter sets span all dimensional regimes,
+    zero and finite temperature, light and heavy mass, and one input the
+    model cannot compute. They are parametrized because they all test the
+    one concept "the two GUIs agree", while still reporting which input
+    failed. When the model cannot compute a case, both GUIs show the same
+    error message and keep their previous curves, so only the summary
+    text is compared there (the leftover curves differ by build history,
+    not by physics).
+
+    GIVEN the same slider state applied to both the reference and the
+    optimized GUI,
+    WHEN both are driven to compute,
+    THEN their state-summary text matches, and -- for the cases the model
+    can compute -- their DOS curve, analytical limit, Fermi level, and
+    regime label are identical.
+    """
     ref = ref_gui.build_app(plt, Slider, Button)
     fast = fast_gui.build_app(plt, Slider, Button)
     try:
@@ -101,9 +123,20 @@ def test_fast_gui_matches_reference_gui_numerically(params):
 
 
 def test_fast_gui_matches_reference_after_occupied_shading():
-    # The occupied-DOS shading (dos * Fermi-Dirac occupation) is what the
-    # temperature slider drives; verify it matches between the two GUIs at
-    # a finite temperature by comparing the fill polygon vertices.
+    """The two GUIs must agree at a finite temperature too.
+
+    WHY: the parametrized test includes finite-temperature cases, but
+    this adds an explicit check at a representative warm temperature,
+    where the occupied-DOS shading (DOS times Fermi-Dirac occupation) is
+    non-trivial. If the two GUIs computed occupation differently, their
+    summaries -- which include the DOS-at-Fermi-energy value derived from
+    the same data -- would diverge. Confirming the summaries still match
+    guards the temperature-dependent part of the pipeline specifically.
+
+    GIVEN a 6x6x6 nm box at 400 K applied to both GUIs,
+    WHEN both are driven to compute,
+    THEN their state-summary text is identical.
+    """
     ref = ref_gui.build_app(plt, Slider, Button)
     fast = fast_gui.build_app(plt, Slider, Button)
     try:
