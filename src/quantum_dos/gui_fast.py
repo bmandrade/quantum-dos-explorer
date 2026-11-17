@@ -111,6 +111,7 @@ class DosCache:
     """
 
     def __init__(self) -> None:
+        """Create an empty cache holding no previous result."""
         self._key: Optional[_CurveKey] = None
         self._result: Optional[DOSResult] = None
         self._sorted_energies: Optional[np.ndarray] = None

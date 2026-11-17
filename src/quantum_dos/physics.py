@@ -53,6 +53,13 @@ __all__ = [
 
 
 def _validate_positive(name: str, value: float) -> None:
+    """Raise ValueError unless ``value`` is a finite, strictly positive number.
+
+    A small shared guard used by the public functions in this module to
+    reject physically invalid inputs (a zero, negative, or non-finite
+    broadening, cutoff, density, etc.) with a consistent, informative
+    message naming the offending parameter.
+    """
     if not np.isfinite(value) or value <= 0:
         raise ValueError(f"{name} must be a finite, positive number; got {value!r}.")
 

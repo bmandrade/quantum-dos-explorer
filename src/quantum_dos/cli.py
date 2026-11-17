@@ -35,7 +35,21 @@ __all__ = ["build_parser", "main"]
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Construct the CLI argument parser."""
+    """Construct and return the command-line argument parser.
+
+    Defines every option the ``quantum-dos`` command accepts -- the box
+    geometry, the physics parameters, the numerical grid, the
+    confinement thresholds, and the output options -- together with
+    their units, defaults, and help text. It is kept separate from
+    :func:`main` so the parser can be inspected and tested on its own
+    (for example, checking that required arguments are enforced and that
+    optional ones fall back to their documented defaults).
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The fully configured parser.
+    """
     parser = argparse.ArgumentParser(
         prog="quantum-dos",
         description=(
@@ -140,6 +154,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _run(args: argparse.Namespace) -> int:
+    """Run one calculation from parsed arguments and report the result.
+
+    Builds the box and thresholds from the parsed arguments, calls the
+    scientific API, prints the summary (unless ``--quiet``), and
+    optionally writes the DOS curve to a CSV file. Invalid input is
+    reported as a clean error on stderr with a non-zero exit code rather
+    than an uncaught exception, so the command behaves well in scripts.
+
+    Returns
+    -------
+    int
+        Process exit code: 0 on success, 1 if the calculation could not
+        be performed (e.g. invalid parameters or too few enumerated
+        states for the requested filling).
+    """
     try:
         box = QuantumBox(
             lx_nm=args.lx, ly_nm=args.ly, lz_nm=args.lz,
@@ -192,7 +221,22 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point. Returns a process exit code."""
+    """Command-line entry point for the ``quantum-dos`` command.
+
+    Parses the command-line arguments (or ``argv`` if given, which makes
+    the entry point testable in-process) and runs a single calculation.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        Argument list to parse. Defaults to ``None``, in which case the
+        real process arguments (``sys.argv``) are used.
+
+    Returns
+    -------
+    int
+        The process exit code (0 on success, non-zero on error).
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
     return _run(args)

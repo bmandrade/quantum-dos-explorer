@@ -45,6 +45,13 @@ class QuantumBox:
     effective_mass: float
 
     def __post_init__(self) -> None:
+        """Validate the box dimensions and mass at construction time.
+
+        Rejects any non-finite or non-positive side length or effective
+        mass with a ValueError, so an invalid box fails immediately and
+        informatively rather than producing NaNs or a division by zero
+        downstream (the energies scale as 1/L^2 and 1/m*).
+        """
         for name in ("lx_nm", "ly_nm", "lz_nm"):
             value = getattr(self, name)
             if not np.isfinite(value) or value <= 0:
@@ -112,6 +119,14 @@ class ConfinementThresholds:
     bulk_nm: float = 8.0
 
     def __post_init__(self) -> None:
+        """Validate the two thresholds at construction time.
+
+        Each threshold must be finite and positive, and the confined
+        cutoff must lie strictly below the bulk cutoff so that a
+        non-empty crossover band exists between them. An invalid pair is
+        rejected with a ValueError rather than silently producing a
+        nonsensical classification.
+        """
         if not np.isfinite(self.confined_nm) or self.confined_nm <= 0:
             raise ValueError(
                 "ConfinementThresholds.confined_nm must be finite and "

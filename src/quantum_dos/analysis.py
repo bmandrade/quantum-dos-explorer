@@ -33,6 +33,13 @@ __all__ = ["analytical_dos", "classify_axis", "classify_regime"]
 
 
 def _n_bulk_axes(box: QuantumBox, thresholds: ConfinementThresholds) -> int:
+    """Count how many of the box's axes are longer than the bulk threshold.
+
+    This count is the basis of the dimensional classification: the number
+    of "bulk-like" (extended) axes is what distinguishes a 1-D wire from a
+    2-D well from a 3-D bulk. Shared by :func:`analytical_dos` and
+    :func:`classify_regime` so they use one consistent rule.
+    """
     return sum(L > thresholds.bulk_nm for L in box.dimensions_nm)
 
 
