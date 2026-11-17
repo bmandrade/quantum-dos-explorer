@@ -257,6 +257,28 @@ This is a deliberately simple exploratory model. Be aware that:
   the per-axis state counts, i.e. it grows quickly for large boxes and/or
   small effective mass. Very large boxes can be slow or memory-heavy.
 
+## Use of AI tools
+
+In accordance with the university's guidelines on the declaration of AI
+use, this section discloses how AI assistance was used in preparing this
+project.
+
+AI assistance (Anthropic's Claude) was used during development. Its most
+substantial contribution was in generating and structuring the `pytest`
+test suite; it was also used for help with refactoring the original
+prototype into a package, drafting documentation, debugging, and
+resolving platform-specific issues with the interactive GUI.
+
+The underlying physical model, the scientific assumptions, and the
+decisions about what the software should do and how it should be
+organized are the author's own. All AI-generated content, including the
+tests, was reviewed by the author, who takes full responsibility for the
+correctness and content of the submitted work. Where AI assistance was
+used, it was used as a tool under the author's direction.
+
+The original `Quantum DOS Explorer` prototype, which is the starting
+point this project builds on, is the author's own prior work.
+
 ## License
 
 MIT -- see [`LICENSE`](LICENSE).

@@ -9,19 +9,17 @@ unchanged; this module adds result caching in the GUI layer, plus the
 shared truncated-Gaussian broadening in the science core, neither of
 which alters the physics:
 
-1. **Result caching.** The expensive DOS curve is recomputed only when
-   an input that actually changes it (geometry, effective mass, sigma)
-   changes. Moving the temperature slider triggers *no* recompute (it
-   only re-shades the occupied region); moving the density slider reuses
-   the cached DOS curve and only re-derives the cheap Fermi energy.
+**Result caching.** The expensive DOS curve is recomputed only when an
+input that actually changes it (geometry, effective mass, sigma)
+changes. Moving the temperature slider triggers *no* recompute (it only
+re-shades the occupied region); moving the density slider reuses the
+cached DOS curve and only re-derives the cheap Fermi energy.
 
-(Earlier versions also blitted and debounced slider events through a
-matplotlib timer, but both proved unreliable on some interactive
-backends -- blitting left a blank plot, and the timer failed to fire on
-some TkAgg builds, leaving sliders unresponsive. Both were removed in
-favor of a direct compute-and-redraw per change, which is robust on
-every backend; the caching and truncated-Gaussian broadening already
-provide the speedup, so a direct update stays smooth for normal boxes.)
+Each slider recomputes directly in its callback. The caching above
+keeps that cheap for temperature and density, and the truncated-Gaussian
+broadening keeps geometry recomputes fast, so updates stay smooth for
+normal boxes without a debounce timer or blitting (both of which behave
+inconsistently across matplotlib backends).
 
 Launch it with::
 
@@ -371,17 +369,12 @@ def build_app(plt, Slider, Button):
     def _on_change(_=None):
         """Recompute and redraw directly when a slider changes.
 
-        Earlier versions debounced slider events through a
-        ``fig.canvas.new_timer`` one-shot timer, but those timers do not
-        fire reliably on every interactive backend (notably some TkAgg
-        builds), which left sliders appearing unresponsive -- the value
-        moved under the cursor but no recompute ran. Computing directly
-        in the callback is robust everywhere. The heavy work is already
-        avoided upstream: the cache makes temperature/density changes
-        essentially free, and the truncated-Gaussian broadening keeps
-        even a full geometry recompute fast, so a direct update is
-        smooth for normal boxes (very large boxes may show brief lag
-        during a drag, which is preferable to an unresponsive slider).
+        Computing synchronously in the callback is robust across
+        matplotlib backends. The heavy work is avoided upstream: the
+        cache makes temperature and density changes essentially free,
+        and the truncated-Gaussian broadening keeps a full geometry
+        recompute fast, so a direct update stays smooth for normal
+        boxes. Very large boxes may show brief lag during a drag.
         """
         _compute_and_draw()
 

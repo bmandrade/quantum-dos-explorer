@@ -165,11 +165,11 @@ class TestGuiFastSmoke:
 
 
 class TestRendersVisibly:
-    """Regression tests for the empty-plot bug: an earlier version marked
-    the artists ``animated=True`` for blitting, which some interactive
-    backends skip on initial show, leaving a blank plot. These tests
-    assert the curve is actually painted into the rendered buffer -- both
-    right after building and after a subsequent update.
+    """The DOS curve must be painted into the rendered buffer, both right
+    after the window is built and after a subsequent update. (Marking the
+    artists ``animated=True`` would make some backends skip them on the
+    initial draw and leave a blank plot, so these tests guard against
+    that regression.)
     """
 
     def _blue_curve_pixels(self, app):
@@ -191,8 +191,8 @@ class TestRendersVisibly:
         assert self._blue_curve_pixels(app) > 100
 
     def test_artists_are_not_animated(self, app):
-        # animated=True is exactly what caused the blank-plot bug; guard
-        # against it being reintroduced.
+        # Artists must not be animated, otherwise some backends skip them
+        # on the initial draw and the plot renders blank.
         for name in ("line_dos", "line_theo", "vline_ef", "regime_badge"):
             assert app["artists"][name].get_animated() is False
         assert app["info"].get_animated() is False
@@ -212,9 +212,9 @@ class TestDefaultTemperature:
 
 
 class TestDirectComputeOnChange:
-    """The optimized GUI recomputes directly in each slider's on_changed
-    callback (no debounce timer, which proved unreliable on some
-    interactive backends). Moving a slider updates the curve immediately.
+    """Moving a slider updates the curve immediately: the optimized GUI
+    recomputes directly in each slider's on_changed callback, with no
+    debounce timer in between.
     """
 
     def test_slider_change_computes_immediately(self, app):

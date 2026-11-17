@@ -27,17 +27,13 @@ describe the transformation from the original single-file
   changes reuse the cached DOS curve and re-fill only the Fermi energy;
   geometry/mass/sigma changes do a full recompute. A density-only change
   on the 20 nm box drops from ~158 ms to ~0.006 ms.
-- **Direct compute-on-change**: each slider recompute runs immediately
-  in its callback. (An earlier iteration debounced through a matplotlib
-  timer, but those timers did not fire reliably on some TkAgg builds,
-  leaving sliders unresponsive; the caching and truncated-Gaussian
-  broadening already keep updates fast, so the timer was removed.)
+- **Direct compute-on-change**: each slider recomputes immediately in
+  its callback, with no debounce timer or blitting. Both of those were
+  evaluated and dropped because they behave inconsistently across
+  matplotlib backends; the caching and truncated-Gaussian broadening
+  already keep updates fast enough for a direct redraw.
 - The whole optimization changes only speed, not the physics; the
   scientific core's results are unchanged to floating-point precision.
-  (An earlier iteration also blitted the plot, but that relied on
-  ``animated`` artists which some interactive backends fail to render on
-  initial show, producing a blank plot; it was removed in favor of a
-  plain, robust redraw.)
 
 ### Changed
 - The GUI temperature slider now **defaults to 0 K** (true
@@ -47,7 +43,7 @@ describe the transformation from the original single-file
 - Installable Python package (`quantum_dos`) with a pure-NumPy
   scientific core (`constants.py`, `models.py`, `physics.py`,
   `analysis.py`), independent of matplotlib.
-- `pytest` test suite (75 tests, 100% line coverage of the scientific
+- `pytest` test suite (126 tests, with high coverage of the scientific
   core) including regression tests for bugs found during refactoring.
 - `pyproject.toml` packaging (`pip install .` / `pip install -e ".[dev]"`),
   MIT `LICENSE`, `.gitignore`.
