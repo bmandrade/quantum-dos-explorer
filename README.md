@@ -81,6 +81,9 @@ result = calculate_dos(
 print(result.fermi_energy_eV)   # -> 5.9413 (eV)
 ```
 
+The full public API — every class, function, argument and unit — is
+documented in [`docs/api_reference.md`](docs/api_reference.md).
+
 ### CLI
 
 ```bash
@@ -205,11 +208,15 @@ pytest                       # run all tests
 pytest --cov=quantum_dos     # with coverage
 ```
 
-The suite tests scientific behavior (energies vs. the analytical
-formula, DOS properties, Fermi filling, Fermi-Dirac limits, dimensional
-classification, input validation) rather than just execution, and
-includes regression tests for bugs found while refactoring, plus a
-headless GUI smoke test (skipped automatically if matplotlib is absent).
+The suite (112 tests) checks scientific behaviour against exact physics
+(energies vs. the analytical formula, DOS properties, Fermi filling,
+Fermi-Dirac limits, dimensional classification, input validation) rather
+than just execution, with the GUI covered only at its numerical boundary
+(the DOS cache and its equivalence to the reference).
+
+See [`docs/testing_strategy.md`](docs/testing_strategy.md) for the full
+testing strategy — the behaviour-driven style, the oracle and invariant
+tests, and what is deliberately left untested.
 
 ## Development
 
